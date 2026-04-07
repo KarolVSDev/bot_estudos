@@ -1,0 +1,14 @@
+# Credenciais — NUNCA versionar estes arquivos
+.env
+sessao.json
+
+# Arquivos gerados pelo robô
+*.xlsx
+*.png
+
+# Ambiente virtual
+venv/
+
+# Cache Python
+__pycache__/
+*.pyc

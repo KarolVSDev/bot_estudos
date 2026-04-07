@@ -1,98 +1,198 @@
+from playwright.sync_api import sync_playwright
 import pandas as pd
-from pypdf import PdfReader
-import re 
-from botcity.maestro import *
+import re
+import smtplib
+import logging
+from email.message import EmailMessage
 from pathlib import Path
-import matplotlib.pyplot as plt
+from dotenv import load_dotenv
+import os
 
-# Desabilita erro se não estiver no Maestro
-BotMaestroSDK.RAISE_NOT_CONNECTED = False
+load_dotenv()
 
-def extrair_dados_pdf(caminho_pdf):
-    reader = PdfReader(caminho_pdf)
-    dados = []
-    padrao_topico = re.compile(r"^\d+(?:\.\d+)*\.?\s+")
-    
-    # Percorre todas as páginas do PDF
-    for page in reader.pages:
-        texto = page.extract_text()
-        
-        # Regex para pegar o nome do assunto e a quantidade de questões
-        # Exemplo: "Licitações e Contratos ... 415 questões"
-        padrao = r"([\w\s,()º./-]+?)\s+(\d+|uma)\s+questões?"
-        matches = re.findall(padrao, texto)
-        
-        for assunto, qtd in matches:
-            assunto_limpo = assunto.strip()
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(message)s",
+    datefmt="%H:%M:%S",
+)
 
-            # Mantém apenas assuntos que seguem a numeração do edital (1., 1.2., 3.5.1. etc.)
-            if not padrao_topico.match(assunto_limpo):
-                continue
+# ================================
+# CONFIG — carregado do arquivo .env
+# ================================
+EMAIL = os.getenv("EMAIL")
+SENHA = os.getenv("SENHA")
 
-            # Converte "uma" para 1 e limpa o texto
-            valor = 1 if qtd == "uma" else int(qtd)
-            dados.append({"Assunto": assunto_limpo, "Questões": valor})
-            
-    return dados
+URL_LOGIN = os.getenv("URL_LOGIN", "https://www.tecconcursos.com.br/login")
+CONCURSO_BUSCA = os.getenv("CONCURSO_BUSCA", "UFAM")
+
+EMAIL_REMETENTE = os.getenv("EMAIL_REMETENTE")
+SENHA_EMAIL = os.getenv("SENHA_EMAIL")
+EMAIL_DESTINATARIO = os.getenv("EMAIL_DESTINATARIO")
 
 
-def gerar_grafico_assuntos_mais_cobrados(df_ranking, caminho_saida, top_n=None):
-    if top_n is None:
-        df_grafico = df_ranking.copy()
-    else:
-        df_grafico = df_ranking.head(top_n).copy()
+# ================================
+# ENVIO DE E-MAIL
+# ================================
+def enviar_email(arquivos: list[str]):
+    msg = EmailMessage()
+    msg["Subject"] = f"Ranking UFAM — {len(arquivos)} disciplina(s)"
+    msg["From"] = EMAIL_REMETENTE
+    msg["To"] = EMAIL_DESTINATARIO
+    msg.set_content("Segue(m) em anexo o(s) arquivo(s) gerado(s) pela automação.")
 
-    if df_grafico.empty:
-        return
+    for caminho in arquivos:
+        p = Path(caminho)
+        if p.exists():
+            msg.add_attachment(
+                p.read_bytes(),
+                maintype="application",
+                subtype="vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                filename=p.name,
+            )
 
-    # Inverte para exibir o maior valor no topo em gráfico horizontal
-    df_grafico = df_grafico.iloc[::-1]
+    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as smtp:
+        smtp.login(EMAIL_REMETENTE, SENHA_EMAIL)
+        smtp.send_message(msg)
 
-    altura = max(8, len(df_grafico) * 0.35)
-    plt.figure(figsize=(14, altura))
-    plt.barh(df_grafico["Assunto"], df_grafico["Questões"], color="#1f77b4")
-    if top_n is None:
-        plt.title("Todos os Assuntos por Quantidade de Questões")
-    else:
-        plt.title(f"Top {top_n} Assuntos Mais Cobrados")
-    plt.xlabel("Quantidade de Questões")
-    plt.ylabel("Assunto")
-    plt.tight_layout()
-    plt.savefig(caminho_saida, dpi=150)
-    plt.close()
+    logging.info(f"E-mail enviado para {EMAIL_DESTINATARIO} com {len(arquivos)} anexo(s)!")
 
-def main():
-    # 1. Caminho do arquivo PDF dentro da pasta resources
-    base_dir = Path(__file__).resolve().parent
-    arquivo_pdf = base_dir / "resources" / "Guia de Conhecimentos Específicos para Assistente em Administração - UFAM - 2026.pdf"
-    if not arquivo_pdf.exists():
-        raise FileNotFoundError(f"Arquivo não encontrado: {arquivo_pdf}")
-    
-    print(f"Lendo arquivo: {arquivo_pdf.name}")
-    lista_assuntos = extrair_dados_pdf(arquivo_pdf)
-    
-    # 2. Criar o DataFrame com Pandas
-    df = pd.DataFrame(lista_assuntos)
-    
-    # 3. Ordenar todos os tópicos por volume de questões
-    print("Organizando dados e montando ranking...")
-    df_ranking = df.sort_values(by="Questões", ascending=False)
-    
-    # 4. Gerar Relatório de Relevância completo (sem imprimir tópicos no terminal)
-    
-    # 5. Salvar o ranking completo
-    df_ranking.to_excel("Ranking_Estudo_UFAM.xlsx", index=False)
-    print("\n Excel gerado com sucesso!")
 
-    # 6. Gerar gráfico com todos os tópicos
-    caminho_grafico_todos = "Grafico_Todos_os_Topicos.png"
-    gerar_grafico_assuntos_mais_cobrados(df_ranking, caminho_grafico_todos, top_n=None)
-    print(f"Gráfico gerado com sucesso: {caminho_grafico_todos}")
+# ================================
+# FLUXO PRINCIPAL
+# ================================
+def rodar():
+    with sync_playwright() as p:
+        browser = p.chromium.launch(headless=False, slow_mo=500)
+        context = browser.new_context()
+        page = context.new_page()
 
-    # 7. Gerar gráfico com Top 15 assuntos mais cobrados
-    caminho_grafico_top15 = "Grafico_Top_15_Assuntos.png"
-    gerar_grafico_assuntos_mais_cobrados(df_ranking, caminho_grafico_top15, top_n=15)
-    print(f"Gráfico gerado com sucesso: {caminho_grafico_top15}")
+        # --- 1. LOGIN ---
+        logging.info("Acessando página de login...")
+        page.goto(URL_LOGIN)
+        page.fill("input[type='email'], input[name='email']", EMAIL)
+        page.fill("input[type='password'], input[name='password']", SENHA)
+        page.click("button[type='submit']")
+        logging.info("Aguardando resolução do captcha e carregamento...")
+        page.wait_for_load_state("networkidle")
+        logging.info("Login realizado!")
 
-if __name__ == '__main__':
-    main()
+        # --- 2. CLICAR EM CONCURSOS ---
+        logging.info("Clicando em 'Concursos'...")
+        page.wait_for_selector("text=Concursos", timeout=15000)
+        page.click("text=Concursos")
+
+        page.wait_for_load_state("networkidle")
+        logging.info("Página de Concursos carregada!")
+
+        # --- 3. PESQUISAR CONCURSO ---
+        logging.info(f"Pesquisando por '{CONCURSO_BUSCA}'...")
+        page.wait_for_selector("#valor-busca", timeout=15000)
+        page.click("#valor-busca")
+        page.fill("#valor-busca", CONCURSO_BUSCA)
+        page.keyboard.press("Enter")
+
+        page.wait_for_load_state("networkidle")
+        logging.info(f"Pesquisa por '{CONCURSO_BUSCA}' realizada!")
+
+        # --- 4. CLICAR NO CARGO ---
+        logging.info("Clicando no cargo desejado...")
+        SELETOR_CARGO = "#resultado-busca > div > div.resultado-conteudo.ng-scope > div:nth-child(1) > div.edital-concursos > div:nth-child(2) > div.edital-concurso-informacoes > div.concurso-link > a"
+        page.wait_for_selector(SELETOR_CARGO, timeout=15000)
+        page.click(SELETOR_CARGO)
+
+        page.wait_for_load_state("networkidle")
+        logging.info("Cargo selecionado!")
+
+        # --- 5. CLICAR NO MENU DE DETALHES ---
+        logging.info("Clicando no menu de detalhes...")
+        SELETOR_MENU = "#pesquisa-concursos > div > div > div.detalhes > div.detalhes-complementos.ng-scope > nav > span.detalhes-complementos-menu-item.menu-item-link"
+        page.wait_for_selector(SELETOR_MENU, timeout=15000)
+        page.click(SELETOR_MENU)
+
+        page.wait_for_load_state("networkidle")
+        logging.info("Menu de detalhes clicado!")
+
+        # --- 6. COLETAR TODAS AS DISCIPLINAS ---
+        logging.info("Coletando disciplinas disponíveis...")
+        page.wait_for_selector("#concurso-guias-de-estudo", timeout=15000)
+
+        # Lê href e nome de cada disciplina de uma vez (evita referencias obsoletas)
+        disciplinas = page.evaluate("""
+            () => {
+                const items = document.querySelectorAll('#concurso-guias-de-estudo .cadernos-item-disciplina');
+                return Array.from(items).map(item => {
+                    const link = item.querySelector('span:nth-child(2) a');
+                    const nomeEl = item.querySelector('div:first-child');
+                    return {
+                        nome: nomeEl ? nomeEl.innerText.trim() : (link ? link.innerText.trim() : 'Disciplina'),
+                        href: link ? link.href : null
+                    };
+                }).filter(d => d.href);
+            }
+        """)
+
+        logging.info(f"{len(disciplinas)} disciplina(s) encontrada(s).")
+
+        # --- 7. EXTRAIR E SALVAR CADA DISCIPLINA ---
+        arquivos_gerados = []
+        for i, disc in enumerate(disciplinas, 1):
+            nome = disc["nome"] or f"Disciplina_{i}"
+            href = disc["href"]
+
+            # Sanitiza nome para usar como nome de arquivo
+            nome_arquivo = re.sub(r'[\\/*?:"<>|]', "", nome)[:60].strip()
+
+            logging.info(f"[{i}/{len(disciplinas)}] Acessando: {nome_arquivo}")
+            page.goto(href)
+            page.wait_for_load_state("networkidle")
+
+            texto = page.inner_text("body")
+            dados = []
+            linhas = texto.splitlines()
+            for idx, linha in enumerate(linhas):
+                linha = linha.strip()
+                if not linha:
+                    continue
+                match_qtd = re.match(r'^(\d+|uma)\s+questões?$', linha, re.IGNORECASE)
+                if match_qtd:
+                    qtd_raw = match_qtd.group(1)
+                    qtd = 1 if qtd_raw.lower() == "uma" else int(qtd_raw)
+                    assunto = ""
+                    for j in range(idx - 1, -1, -1):
+                        candidato = linhas[j].strip()
+                        if candidato:
+                            assunto = candidato
+                            break
+                    if assunto:
+                        dados.append({"Assunto": assunto, "Qtd de Questões": qtd})
+
+            if not dados:
+                logging.warning(f"Nenhum dado encontrado para {nome_arquivo}.")
+            else:
+                df = pd.DataFrame(dados).drop_duplicates(subset="Assunto")
+                df = df.sort_values("Qtd de Questões", ascending=False).reset_index(drop=True)
+                pasta_saida = Path("resultados")
+                pasta_saida.mkdir(exist_ok=True)
+                arquivo = pasta_saida / f"Ranking_{nome_arquivo}.xlsx"
+                with pd.ExcelWriter(arquivo, engine="openpyxl") as writer:
+                    df.to_excel(writer, index=False)
+                    ws = writer.sheets["Sheet1"]
+                    ws.column_dimensions["A"].width = max(df["Assunto"].str.len().max() + 2, 30)
+                arquivos_gerados.append(str(arquivo))
+                logging.info(f"Salvo: {arquivo} ({len(df)} tópicos)")
+
+        logging.info("Todas as disciplinas extraídas!")
+
+        logging.info("Fechando o navegador...")
+        browser.close()
+
+        if arquivos_gerados:
+            logging.info("Enviando por e-mail...")
+            enviar_email(arquivos_gerados)
+
+
+# ================================
+# EXECUÇÃO
+# ================================
+if __name__ == "__main__":
+    rodar()
