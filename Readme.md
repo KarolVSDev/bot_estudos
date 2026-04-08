@@ -1,4 +1,4 @@
-# Analisador Estratégico de Editais (UFAM 2026)
+# Analisador Estratégico de Editais 
 
 Robô desenvolvido em Python para extração de dados e análise de relevância de tópicos em editais de concursos e guias de estudo.
 

@@ -5,6 +5,7 @@ sessao.json
 # Arquivos gerados pelo robô
 *.xlsx
 *.png
+!resources/diagrama_atv.png
 
 # Ambiente virtual
 venv/

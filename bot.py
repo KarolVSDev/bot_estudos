@@ -35,7 +35,7 @@ EMAIL_DESTINATARIO = os.getenv("EMAIL_DESTINATARIO")
 # ================================
 def enviar_email(arquivos: list[str]):
     msg = EmailMessage()
-    msg["Subject"] = f"Ranking UFAM — {len(arquivos)} disciplina(s)"
+    msg["Subject"] = f"Ranking — {len(arquivos)} disciplina(s)"
     msg["From"] = EMAIL_REMETENTE
     msg["To"] = EMAIL_DESTINATARIO
     msg.set_content("Segue(m) em anexo o(s) arquivo(s) gerado(s) pela automação.")
