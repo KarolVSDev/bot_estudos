@@ -65,6 +65,8 @@ def rodar():
         browser = p.chromium.launch(headless=False, slow_mo=500)
         context = browser.new_context()
         page = context.new_page()
+        page.set_viewport_size({"width": 1920, "height": 1080})
+        page.evaluate("window.moveTo(0,0); window.resizeTo(screen.width, screen.height);")
 
         # --- 1. LOGIN ---
         logging.info("Acessando página de login...")

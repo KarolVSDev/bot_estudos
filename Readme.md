@@ -6,7 +6,7 @@ O foco principal é automatizar a identificação dos assuntos mais cobrados, ot
 
 ## Problema
 
-Editais de concursos públicos, como o da UFAM 2026, possuem centenas de tópicos. Identificar quais assuntos têm maior incidência de questões manualmente é um processo lento e sujeito a erros.
+Editais de concursos públicos, possuem centenas de tópicos. Identificar quais assuntos têm maior incidência de questões manualmente é um processo lento e sujeito a erros.
 
 Este robô resolve a falta de dados estruturados em arquivos PDF.
 
@@ -14,23 +14,31 @@ Este robô resolve a falta de dados estruturados em arquivos PDF.
 
 - Extração automatizada: lê arquivos PDF e identifica padrões de Assunto vs Quantidade de Questões.
 - Filtro inteligente (Regex): ignora ruídos do PDF e captura apenas os tópicos numerados do conteúdo programático (ex: 1.1, 2.3.1).
-- Exportação de dados: gera um arquivo Excel (.xlsx) com o ranking completo.
-- Visualização de dados: gera gráficos (Top 15 e geral) em formato PNG para análise visual rápida.
+- Exportação de dados: gera um arquivo Excel (.xlsx) para cada disciplina com o ranking completo.
 
 ## Tecnologias Utilizadas
 
 - Python 3.x
 - Pandas: manipulação e ordenação de dados.
-- Matplotlib: geração de gráficos estatísticos.
+- SMTP: para envio de emails.
+- Plawrity: para automação web.
 - PyPDF: extração de texto de arquivos PDF.
 - BotCity Maestro SDK: integração para orquestração de robôs (RPA).
+- Re (REGEX): para identificação de padrões.
 - Pathlib: gerenciamento de caminhos de arquivos de forma multiplataforma.
+- Dotenv: Para questões de segurança e boas práticas.
+
+## Ferramentas Utilizadas
+
+- Github: versionamento de código;
+- Vscode: IDE;
+- PlantUML: diagrama;
 
 ## Arquitetura do Projeto
 
 ### Fluxo de Execução
 
-![Diagrama de atividade](resources/diagrama%20de%20atividade.png)
+![Diagrama de atividade](resources/diagrama_atv.png)
 
 ## Como Executar
 
@@ -61,6 +69,5 @@ python bot.py
 
 Após a execução, o robô entrega:
 
-- Ranking_Estudo_UFAM.xlsx
-- Grafico_Top_15_Assuntos.png
-- Grafico_Todos_os_Topicos.png
+- Arquivos .xlsx contendo os assuntos das disciplinas
+- Email para o destinário com os respectivos arquivos em anexo
