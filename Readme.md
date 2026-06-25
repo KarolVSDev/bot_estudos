@@ -8,11 +8,11 @@ O foco principal é automatizar a identificação dos assuntos mais cobrados, ot
 
 Editais de concursos públicos, possuem centenas de tópicos. Identificar quais assuntos têm maior incidência de questões manualmente é um processo lento e sujeito a erros.
 
-Este robô resolve a falta de dados estruturados em arquivos PDF.
+Este robô resolve a falta de dados estruturados.
 
 ## Funcionalidades
 
-- Extração automatizada: lê arquivos PDF e identifica padrões de Assunto vs Quantidade de Questões.
+- Extração automatizada: lê página web e identifica padrões de Assunto vs Quantidade de Questões.
 - Filtro inteligente (Regex): ignora ruídos do PDF e captura apenas os tópicos numerados do conteúdo programático (ex: 1.1, 2.3.1).
 - Exportação de dados: gera um arquivo Excel (.xlsx) para cada disciplina com o ranking completo.
 
